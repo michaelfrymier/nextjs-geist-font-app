@@ -1,0 +1,231 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      UserRole @default(TECHNICIAN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tickets   Ticket[]
+  invoices  Invoice[]
+  
+  @@map("users")
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String   @unique
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  postalCode  String?
+  country     String   @default("USA")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  devices     Device[]
+  tickets     Ticket[]
+  invoices    Invoice[]
+  appointments Appointment[]
+
+  @@map("customers")
+}
+
+model Device {
+  id          String     @id @default(cuid())
+  customerId  String
+  type        DeviceType
+  brand       String
+  model       String
+  serialNumber String?
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tickets     Ticket[]
+
+  @@map("devices")
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  customerId  String
+  deviceId    String?
+  assignedTo  String?
+  subject     String
+  description String
+  status      TicketStatus @default(OPEN)
+  priority    Priority     @default(MEDIUM)
+  issueType   String
+  estimatedCost Float?
+  actualCost    Float?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  completedAt DateTime?
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  device      Device?  @relation(fields: [deviceId], references: [id])
+  assignedUser User?   @relation(fields: [assignedTo], references: [id])
+  invoice     Invoice?
+  activities  TicketActivity[]
+
+  @@map("tickets")
+}
+
+model TicketActivity {
+  id        String   @id @default(cuid())
+  ticketId  String
+  activity  String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_activities")
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  customerId  String
+  ticketId    String        @unique
+  createdBy   String
+  invoiceNumber String      @unique
+  status      InvoiceStatus @default(DRAFT)
+  subtotal    Float
+  tax         Float         @default(0)
+  total       Float
+  dueDate     DateTime
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id])
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+  lineItems   InvoiceLineItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+  taxable     Boolean @default(true)
+
+  // Relations
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_line_items")
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  customerId  String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  status      AppointmentStatus @default(SCHEDULED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model InventoryItem {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  sku         String  @unique
+  category    String
+  quantity    Int
+  minQuantity Int     @default(5)
+  unitPrice   Float
+  supplier    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  TECHNICIAN
+}
+
+enum DeviceType {
+  LAPTOP
+  DESKTOP
+  TABLET
+  SMARTPHONE
+  PRINTER
+  MONITOR
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PARTS
+  WAITING_CUSTOMER
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
